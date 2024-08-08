@@ -81,6 +81,18 @@ esp_err_t bsp_platform_init() {
         return res;
     }
 
+    printf("Disabling ICO...\r\n");
+    res = pmic_ico(&pmic, false);
+    if (res != ESP_OK) {
+        return res;
+    }
+
+    printf("Set battery charging current to 512mA...\r\n");
+    res = pmic_set_fast_charge_current(&pmic, 512, false);
+    if (res != ESP_OK) {
+        return res;
+    }
+
     printf("\r\nAfter init:\r\n");
 
     res = pmic_dump(&pmic);

@@ -193,6 +193,25 @@ esp_err_t pmic_adc_control(pmic_t* device, bool enable, bool continuous) {
     return result;
 }
 
+esp_err_t pmic_ico(pmic_t* device, bool enable) {
+    const uint8_t reg = 0x02;
+    uint8_t buffer[2] = {reg, 0x00};
+    xSemaphoreTake(device->concurrency_semaphore, portMAX_DELAY);
+    esp_err_t result = i2c_master_write_read_device(device->i2c_bus, device->i2c_address, (uint8_t[]){reg}, 1, &buffer[1], 1, pdMS_TO_TICKS(50));
+    if (result != ESP_OK) {
+        xSemaphoreGive(device->concurrency_semaphore);
+        return result;
+    }
+    if (enable) {
+        buffer[1] |= (1 << 4);
+    } else {
+        buffer[1] &= ~(1 << 4);
+    }
+    result = i2c_master_write_to_device(device->i2c_bus, device->i2c_address, buffer, sizeof(buffer), pdMS_TO_TICKS(50));
+    xSemaphoreGive(device->concurrency_semaphore);
+    return result;
+}
+
 // REG03
 
 esp_err_t pmic_otg(pmic_t* device, bool enable) {
@@ -253,6 +272,51 @@ esp_err_t pmic_set_minimum_system_voltage_limit(pmic_t* device, uint16_t voltage
     }
 
     result = i2c_master_write_to_device(device->i2c_bus, device->i2c_address, buffer, sizeof(buffer), pdMS_TO_TICKS(50));
+    xSemaphoreGive(device->concurrency_semaphore);
+    return result;
+}
+
+// REG04
+
+esp_err_t pmic_set_fast_charge_current(pmic_t* device, uint16_t current, bool en_pumpx) {
+    const uint8_t reg = 0x04;
+    uint8_t buffer[2] = {reg, 0x00};
+
+    if (en_pumpx) {
+        buffer[1] |= (1 << 7);
+    }
+
+    if (current >= 4096) {
+        current -= 4096;
+        buffer[1] |= (1 << 6); // Add 4096mA
+    }
+    if (current >= 2048) {
+        current -= 2048;
+        buffer[1] |= (1 << 5); // Add 2048mA
+    }
+    if (current >= 1024) {
+        current -= 1024;
+        buffer[1] |= (1 << 4); // Add 1024mA
+    }
+    if (current >= 512) {
+        current -= 512;
+        buffer[1] |= (1 << 3); // Add 512mA
+    }
+    if (current >= 256) {
+        current -= 256;
+        buffer[1] |= (1 << 2); // Add 256mA
+    }
+    if (current >= 128) {
+        current -= 128;
+        buffer[1] |= (1 << 1); // Add 128mA
+    }
+    if (current >= 64) {
+        current -= 64;
+        buffer[1] |= (1 << 0); // Add 64mA
+    }
+
+
+    esp_err_t result = i2c_master_write_to_device(device->i2c_bus, device->i2c_address, buffer, sizeof(buffer), pdMS_TO_TICKS(50));
     xSemaphoreGive(device->concurrency_semaphore);
     return result;
 }
@@ -342,6 +406,7 @@ esp_err_t pmic_adc_test(pmic_t* device) {
         return result;
     }
 
+    // REG0E
     bool treg = (buffer[1] >> 7) & 1;
     uint16_t vbatt = 2304;
     if ((buffer[1] >> 6) & 1) vbatt += 1280;
@@ -352,6 +417,7 @@ esp_err_t pmic_adc_test(pmic_t* device) {
     if ((buffer[1] >> 1) & 1) vbatt += 40;
     if ((buffer[1] >> 0) & 1) vbatt += 20;
 
+    // REG0F
     uint16_t vsys = 2304;
     if ((buffer[2] >> 6) & 1) vsys += 1280;
     if ((buffer[2] >> 5) & 1) vsys += 640;
@@ -361,6 +427,7 @@ esp_err_t pmic_adc_test(pmic_t* device) {
     if ((buffer[2] >> 1) & 1) vsys += 40;
     if ((buffer[2] >> 0) & 1) vsys += 20;
 
+    // REG10
     float ts = 21;
     if ((buffer[3] >> 6) & 1) ts += 29.76;
     if ((buffer[3] >> 5) & 1) ts += 14.88;
@@ -370,16 +437,18 @@ esp_err_t pmic_adc_test(pmic_t* device) {
     if ((buffer[3] >> 1) & 1) ts += 0.93;
     if ((buffer[3] >> 0) & 1) ts += 0.465;
 
+    // REG11
     bool vbus_attached = (buffer[4] >> 7) & 1;
     uint16_t vbus = 2304;
-    if ((buffer[4] >> 6) & 1) vbus += 1280;
-    if ((buffer[4] >> 5) & 1) vbus += 640;
-    if ((buffer[4] >> 4) & 1) vbus += 320;
-    if ((buffer[4] >> 3) & 1) vbus += 160;
-    if ((buffer[4] >> 2) & 1) vbus += 80;
-    if ((buffer[4] >> 1) & 1) vbus += 40;
-    if ((buffer[4] >> 0) & 1) vbus += 20;
+    if ((buffer[4] >> 6) & 1) vbus += 6400;
+    if ((buffer[4] >> 5) & 1) vbus += 3200;
+    if ((buffer[4] >> 4) & 1) vbus += 1600;
+    if ((buffer[4] >> 3) & 1) vbus += 800;
+    if ((buffer[4] >> 2) & 1) vbus += 400;
+    if ((buffer[4] >> 1) & 1) vbus += 200;
+    if ((buffer[4] >> 0) & 1) vbus += 100;
 
+    // REG12
     uint16_t charge_current = 0;
     if ((buffer[5] >> 6) & 1) charge_current += 3200;
     if ((buffer[5] >> 5) & 1) charge_current += 1600;

@@ -32,10 +32,14 @@ esp_err_t pmic_power_off(pmic_t* device);
 
 // REG02
 esp_err_t pmic_adc_control(pmic_t* device, bool enable, bool continuous);
+esp_err_t pmic_ico(pmic_t* device, bool enable);
 
 // REG03
 esp_err_t pmic_otg(pmic_t* device, bool enable);
 esp_err_t pmic_set_minimum_system_voltage_limit(pmic_t* device, uint16_t voltage);
+
+// REG04
+esp_err_t pmic_set_fast_charge_current(pmic_t* device, uint16_t current, bool en_pumpx);
 
 // REG07
 esp_err_t pmic_watchdog(pmic_t* device, uint8_t value);
