@@ -55,6 +55,40 @@ esp_err_t bsp_platform_init() {
         return res;
     }
 
+    printf("Setting input current to 2A...\r\n");
+
+    res = pmic_set_input_current_limit(&pmic, 2000, false);
+    if (res != ESP_OK) {
+        return res;
+    }
+
+    printf("Setting minimum system voltage to 3.7v...\r\n");
+
+    res = pmic_set_minimum_system_voltage_limit(&pmic, 3700);
+    if (res != ESP_OK) {
+        return res;
+    }
+
+    printf("Disabling PMIC watchdog...\r\n");
+    res = pmic_watchdog(&pmic, 0b00);
+    if (res != ESP_OK) {
+        return res;
+    }
+
+    printf("Enabling continuous ADC...\r\n");
+    res = pmic_adc_control(&pmic, true, true);
+    if (res != ESP_OK) {
+        return res;
+    }
+
+    printf("\r\nAfter init:\r\n");
+
+    res = pmic_dump(&pmic);
+    if (res != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to dump PMIC registers");
+        return res;
+    }
+
     res = ledstrip_init(&ledstrip);
     if (res != ESP_OK) {
         return res;
@@ -82,4 +116,8 @@ esp_err_t bsp_otg(bool enable) {
 
 esp_err_t bsp_ledstrip_send(uint8_t* data, int length) {
     return ledstrip_send(&ledstrip, data, length);
+}
+
+esp_err_t bsp_test_pmic(void) {
+    return pmic_adc_test(&pmic);
 }

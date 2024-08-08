@@ -679,8 +679,17 @@ void task_runtime_stats_task(void* pvParameters)
 #endif
 
 esp_err_t initialize_leds() {
-    const uint8_t data[] = {255,0,0,0,255,0,0,0,255,255,255,255,255,255,255,255,255,255,255,255,255};
+    const uint8_t data[] = {100,0,0,100,0,0,100,0,0,100,0,0,100,0,0,};
     return bsp_ledstrip_send(data, sizeof(data));
+}
+
+/* Send data to host */
+void pmic_test_task(void* pvParameters)
+{
+	while (1) {
+		bsp_test_pmic();
+		vTaskDelay(pdMS_TO_TICKS(1000));
+	}
 }
 
 void app_main()
@@ -695,6 +704,10 @@ void app_main()
 
 	bsp_platform_init();
 	initialize_leds();
+
+	assert(xTaskCreate(pmic_test_task , "pmic_test_task" ,
+			CONFIG_ESP_DEFAULT_TASK_STACK_SIZE, NULL ,
+			CONFIG_ESP_DEFAULT_TASK_PRIO, NULL) == pdTRUE);
 
 	//vTaskDelay(pdMS_TO_TICKS(5000));
 	//bsp_otg(false);
